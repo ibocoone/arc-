@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { OrderSide, OrderType, Market } from "../../types/trading";
 import { cn, formatCurrency } from "../../lib/utils";
-import { Info, Zap, ShieldCheck, TrendingDown } from "lucide-react";
+import { Info, Zap, ShieldCheck, TrendingDown, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
+import { db } from "../../lib/firebase";
+import { collection, addDoc, serverTimestamp, runTransaction, doc } from "firebase/firestore";
+import { useUser } from "../../contexts/UserContext";
 
 interface OrderPanelProps {
   market: Market;
 }
 
 export default function OrderPanel({ market }: OrderPanelProps) {
+  const { user, userData } = useUser();
   const [side, setSide] = useState<OrderSide>(OrderSide.LONG);
   const [orderType, setOrderType] = useState<OrderType>(OrderType.MARKET);
   const [leverage, setLeverage] = useState(1);
@@ -18,8 +22,67 @@ export default function OrderPanel({ market }: OrderPanelProps) {
   const [trailingCallback, setTrailingCallback] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const collars = [2, 5, 10, 20, 50, 100];
+
+  const handleOpenOrder = async () => {
+    if (!user || !userData) {
+      setError("Please login to trade");
+      return;
+    }
+
+    const tradeSize = parseFloat(size);
+    if (!tradeSize || tradeSize <= 0) {
+      setError("Please enter a valid amount");
+      return;
+    }
+
+    if (tradeSize > userData.balance) {
+      setError("Insufficient balance");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Get Firebase ID Token for secure backend verification
+      const idToken = await user.getIdToken();
+
+      // PRODUCTION GRADE: Call Arc Server to execute the trade
+      const response = await fetch('/api/trading/open-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          marketId: market.id,
+          side,
+          size: tradeSize,
+          leverage,
+          orderType,
+          limitPrice: orderType === OrderType.MARKET ? null : parseFloat(limitPrice),
+          stopLoss: stopLoss ? parseFloat(stopLoss) : null,
+          takeProfit: takeProfit ? parseFloat(takeProfit) : null
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Order failed");
+
+      setSize("");
+      alert("Order executed securely by Arc Server!");
+    } catch (err: any) {
+      console.error("Order failed:", err);
+      setError(err.message || "Failed to execute order");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="w-80 border-l border-white/10 bg-dex-bg flex flex-col h-full overflow-y-auto">
@@ -49,6 +112,12 @@ export default function OrderPanel({ market }: OrderPanelProps) {
       </div>
 
       <div className="p-4 flex flex-col gap-6">
+        {error && (
+          <div className="p-3 bg-red-500/10 border border-red-500/50 rounded text-[10px] text-red-500 font-bold uppercase">
+            Error: {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-1 border border-white/10 p-1">
           {Object.values(OrderType).map((type) => (
             <button
@@ -230,14 +299,23 @@ export default function OrderPanel({ market }: OrderPanelProps) {
         </div>
 
         <button
+          disabled={isSubmitting}
+          onClick={handleOpenOrder}
           className={cn(
             "w-full py-5 rounded text-black font-black uppercase tracking-tighter text-xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-2",
+            isSubmitting && "opacity-50 cursor-not-allowed",
             side === OrderSide.LONG 
               ? "bg-dex-up hover:bg-dex-up/90 shadow-dex-up/20" 
               : "bg-dex-down hover:bg-dex-down/90 shadow-dex-down/20"
           )}
         >
-          {side === OrderSide.LONG ? "Open Long" : "Open Short"}
+          {isSubmitting ? (
+            <Loader2 className="animate-spin" />
+          ) : side === OrderSide.LONG ? (
+            "Open Long"
+          ) : (
+            "Open Short"
+          )}
         </button>
 
         <div className="mt-4 flex items-start gap-3 p-4 bg-white/5 border border-white/10 rounded-lg group hover:bg-white/10 transition-colors">

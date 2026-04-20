@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user account balance and metadata",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "balance": { "type": "number", "description": "Trading balance in USDC" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "balance"]
+    },
+    "Position": {
+      "title": "Trading Position",
+      "description": "An active open trade",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "marketId": { "type": "string" },
+        "side": { "type": "string", "enum": ["LONG", "SHORT"] },
+        "size": { "type": "number" },
+        "leverage": { "type": "number" },
+        "entryPrice": { "type": "number" },
+        "markPrice": { "type": "number" },
+        "liquidationPrice": { "type": "number" },
+        "stopLoss": { "type": "number" },
+        "takeProfit": { "type": "number" },
+        "pnl": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "marketId", "side", "size", "leverage", "entryPrice"]
+    },
+    "Order": {
+      "title": "Trade Order",
+      "description": "An order history or pending order",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "marketId": { "type": "string" },
+        "side": { "type": "string", "enum": ["LONG", "SHORT"] },
+        "type": { "type": "string", "enum": ["MARKET", "LIMIT", "STOP_LIMIT", "TRAILING_STOP", "LIQUIDATION", "CLOSE"] },
+        "size": { "type": "number" },
+        "price": { "type": "number" },
+        "stopLoss": { "type": "number" },
+        "takeProfit": { "type": "number" },
+        "status": { "type": "string", "enum": ["OPEN", "FILLED", "CANCELLED", "LIQUIDATED", "CLOSED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "marketId", "side", "type", "size", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User account documents"
+    },
+    "/users/{userId}/positions/{positionId}": {
+      "schema": "Position",
+      "description": "Active positions for a specific user"
+    },
+    "/users/{userId}/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Order history for a specific user"
+    }
+  }
+}

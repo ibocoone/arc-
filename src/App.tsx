@@ -1,35 +1,65 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "./components/layout/Header";
 import MarketStats from "./components/trading/MarketStats";
-import TradingChart from "./components/trading/TradingChart";
+import TradingViewChart from "./components/trading/TradingViewChart";
 import OrderPanel from "./components/trading/OrderPanel";
 import PositionsTable from "./components/trading/PositionsTable";
+import AIChatAssistant from "./components/trading/AIChatAssistant";
 import { RWA_MARKETS } from "./constants/markets";
-import { Market, Position, OrderSide } from "./types/trading";
+import { Market } from "./types/trading";
 import { cn, formatCurrency } from "./lib/utils";
-import { Search, ChevronRight, Globe, Layers } from "lucide-react";
+import { Search, Globe, Layers, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
-const MOCK_POSITIONS: Position[] = [
-  {
-    id: "1",
-    marketId: "xau-usd",
-    side: OrderSide.LONG,
-    size: 5000,
-    leverage: 10,
-    entryPrice: 2310.20,
-    markPrice: 2384.45,
-    pnl: 160.80,
-    pnlPercentage: 32.16,
-    liquidationPrice: 2105.50,
-  }
-];
-
 export default function App() {
+  const [markets, setMarkets] = useState<Market[]>(RWA_MARKETS);
   const [selectedMarket, setSelectedMarket] = useState<Market>(RWA_MARKETS[0]);
 
+  useEffect(() => {
+    // REAL-TIME MARKET DATA INTEGRATION (BINANCE WEBSOCKET)
+    // Connect to Binance's multiple ticker stream
+    const symbols = markets.map(m => m.id.toLowerCase()).join('@ticker/');
+    const wsUrl = `wss://stream.binance.com:9443/ws/${symbols}@ticker`;
+    
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const symbol = data.s;
+      const newPrice = parseFloat(data.c);
+      const change = parseFloat(data.P);
+      const volume = parseFloat(data.q);
+
+      setMarkets(prev => prev.map(m => {
+        if (m.id === symbol) {
+          return {
+            ...m,
+            price: newPrice,
+            change24h: change,
+            volume24h: volume
+          };
+        }
+        return m;
+      }));
+
+      // Sync selected market
+      if (symbol === selectedMarket.id) {
+        setSelectedMarket(prev => ({
+          ...prev,
+          price: newPrice,
+          change24h: change,
+          volume24h: volume
+        }));
+      }
+    };
+
+    ws.onerror = (err) => console.error("Market WebSocket Error:", err);
+    
+    return () => ws.close();
+  }, [selectedMarket.id]);
+
   return (
-    <div className="flex flex-col h-screen bg-dex-bg text-dex-text overflow-hidden select-none font-sans">
+    <div className="flex flex-col h-screen bg-dex-bg text-dex-text overflow-hidden select-none font-sans transition-colors duration-300">
       <Header />
       
       <main className="flex-1 flex overflow-hidden">
@@ -38,7 +68,7 @@ export default function App() {
           <div className="p-6">
             <span className="label-caps mb-4 block tracking-[0.2em]">Select Asset</span>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-dex-muted w-4 h-4" />
               <input 
                 type="text" 
                 placeholder="SEARCH..." 
@@ -47,12 +77,12 @@ export default function App() {
             </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-3">
-            <div className="text-[10px] uppercase font-black text-white/20 tracking-[0.3em] flex items-center justify-between mb-4">
-              Real World Assets
+          <div className="flex-1 overflow-y-auto px-6 py-2 space-y-3 scrollbar-hide">
+            <div className="text-[10px] uppercase font-black text-dex-muted tracking-[0.3em] flex items-center justify-between mb-4">
+              Tradable Assets
             </div>
             
-            {RWA_MARKETS.map((market) => (
+            {markets.map((market) => (
               <button
                 key={market.id}
                 onClick={() => setSelectedMarket(market)}
@@ -68,14 +98,14 @@ export default function App() {
                     "w-2 h-2 rounded-full",
                     market.category === "Commodity" ? "bg-yellow-500" : market.category === "Forex" ? "bg-blue-500" : "bg-purple-500"
                   )} />
-                  <div className="flex flex-col items-start leading-none">
+                  <div className="flex flex-col items-start leading-none text-left">
                     <span className={cn(
                       "font-black text-sm uppercase tracking-tighter",
-                      selectedMarket.id === market.id ? "text-white" : "text-white/60"
+                      selectedMarket.id === market.id ? "text-dex-text" : "text-dex-muted text-white/50"
                     )}>
                       {market.symbol}
                     </span>
-                    <span className="text-[9px] font-bold text-white/30 uppercase mt-1 tracking-widest">{market.category}</span>
+                    <span className="text-[9px] font-bold text-dex-muted mt-1 tracking-widest">{market.category}</span>
                   </div>
                 </div>
                 <div className="flex flex-col items-end leading-none">
@@ -96,28 +126,25 @@ export default function App() {
           <div className="p-8 border-t border-white/10 flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <Globe size={14} className="text-blue-500" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Network Health</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-dex-muted">Network Health</span>
             </div>
             <div className="flex-1 bg-white/5 h-1 rounded-full overflow-hidden">
-              <div className="bg-blue-500 h-full w-[90%]" />
+              <div className="bg-blue-500 h-full w-[94%] animate-pulse" />
             </div>
           </div>
         </aside>
 
         {/* Center: Trading Area */}
-        <section className="flex-1 flex flex-col min-w-0 bg-dex-bg overflow-y-auto">
+        <section className="flex-1 flex flex-col min-w-0 bg-dex-bg overflow-hidden">
           <MarketStats market={selectedMarket} />
           
-          <div className="flex-1 flex flex-col">
-            <div className="h-[450px] relative">
-              <TradingChart market={selectedMarket} />
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.03] select-none">
-                 <span className="text-[15rem] font-black tracking-tighter uppercase whitespace-nowrap">ARC.NET</span>
-              </div>
+          <div className="flex-1 flex flex-col overflow-y-auto scrollbar-hide">
+            <div className="h-[480px] relative shrink-0">
+              <TradingViewChart market={selectedMarket} />
             </div>
             
-            <div className="mt-auto">
-              <PositionsTable positions={MOCK_POSITIONS} />
+            <div className="flex-1 min-h-[400px]">
+              <PositionsTable />
             </div>
           </div>
         </section>
@@ -125,17 +152,19 @@ export default function App() {
         {/* Right Sidebar: Order Panel */}
         <AnimatePresence mode="wait">
           <motion.div
-            key="order-panel"
+            key={selectedMarket.id}
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 20, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="hidden xl:block"
+            className="hidden xl:block bg-dex-bg h-full"
           >
             <OrderPanel market={selectedMarket} />
           </motion.div>
         </AnimatePresence>
       </main>
+
+      <AIChatAssistant currentMarket={selectedMarket} />
 
       {/* Mobile Footer Navigation */}
       <nav className="md:hidden h-20 border-t border-white/10 bg-dex-bg flex items-center justify-around px-4">

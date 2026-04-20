@@ -5,16 +5,34 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  /* Bold Typography Theme Colors */
-  --color-dex-bg: #050505;
-  --color-dex-card: #0a0a0a;
-  --color-dex-border: rgba(255, 255, 255, 0.1);
-  --color-dex-up: #22c55e; /* Tailwind green-500 */
-  --color-dex-down: #ef4444; /* Tailwind red-500 */
-  --color-dex-text: #ffffff;
-  --color-dex-muted: rgba(255, 255, 255, 0.4);
-  --color-dex-accent: #ffffff;
-  --color-dex-secondary: #2563eb; /* Blue-600 */
+  /* Theme Colors */
+  --color-dex-bg: var(--bg);
+  --color-dex-card: var(--card);
+  --color-dex-border: var(--border);
+  --color-dex-up: #22c55e;
+  --color-dex-down: #ef4444;
+  --color-dex-text: var(--text);
+  --color-dex-muted: var(--muted);
+  --color-dex-accent: var(--accent);
+  --color-dex-secondary: #2563eb;
+}
+
+:root {
+  --bg: #050505;
+  --card: #0a0a0a;
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.4);
+  --accent: #ffffff;
+}
+
+[data-theme='light'] {
+  --bg: #f8f9fa;
+  --card: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --text: #1a1a1a;
+  --muted: rgba(0, 0, 0, 0.5);
+  --accent: #000000;
 }
 
 @layer base {

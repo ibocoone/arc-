@@ -1,9 +1,12 @@
-import { Wallet, Menu, ChevronDown, Activity, Globe, Droplets } from "lucide-react";
+import { Wallet, Menu, ChevronDown, Activity, Globe, Droplets, LogOut, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { cn } from "../../lib/utils";
+import { cn, formatCurrency } from "../../lib/utils";
+import { useUser } from "../../contexts/UserContext";
+import { signIn, logOut } from "../../lib/firebase";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
-  const [isConnected, setIsConnected] = useState(false);
+  const { user, userData, loading } = useUser();
 
   return (
     <header className="h-20 border-b border-white/10 bg-dex-bg flex items-center justify-between px-6 sticky top-0 z-50">
@@ -21,51 +24,59 @@ export default function Header() {
         <nav className="hidden md:flex items-center gap-8 text-[11px] font-bold uppercase tracking-widest">
           <a href="#" className="text-white border-b-2 border-white pb-1 transition-colors">Trade</a>
           <a href="#" className="text-white/50 hover:text-white transition-colors">Dashboard</a>
-          <a href="#" className="text-white/50 hover:text-white transition-colors">Markets</a>
+          <a href="#" className="text-white/50 hover:text-white transition-colors uppercase flex items-center gap-2">
+            <Sparkles size={10} className="text-dex-up" />
+            AI Analytics
+          </a>
           <a href="https://faucet.circle.com" target="_blank" rel="noreferrer" className="text-white/50 hover:text-white transition-colors flex items-center gap-1">
             <Droplets size={12} className="text-blue-500" />
             Faucet
           </a>
-          <a href="#" className="text-white/50 hover:text-white transition-colors">Docs</a>
         </nav>
       </div>
 
       <div className="flex items-center gap-6">
         <div className="hidden lg:flex items-center gap-6">
-          <div className="flex flex-col items-end">
+          <ThemeToggle />
+          <div className="flex flex-col items-end border-l border-white/10 pl-6">
             <span className="label-caps !text-[9px]">Status</span>
             <div className="flex items-center gap-1.5 text-[11px] font-mono">
               <div className="w-1.5 h-1.5 rounded-full bg-dex-up animate-pulse" />
               12MS
             </div>
           </div>
-          <div className="flex flex-col items-end border-l border-white/10 pl-6">
-            <span className="label-caps !text-[9px]">Network</span>
-            <div className="flex items-center gap-1 text-[11px] font-mono uppercase">
-              <Globe className="w-3.5 h-3.5 text-blue-500" />
-              Mainnet
-            </div>
-          </div>
         </div>
 
         <div className="flex items-center gap-4">
-          {isConnected && (
+          {user && (
             <div className="text-right hidden sm:block">
-              <p className="label-caps !text-[8px] opacity-40">Wallet Connected</p>
-              <p className="text-[11px] font-mono tracking-tighter">0x742d...4f2a</p>
+              <p className="label-caps !text-[8px] opacity-40">Account</p>
+              <p className="text-[11px] font-mono tracking-tighter text-white/70">{user.email?.split('@')[0]}</p>
             </div>
           )}
           
           <button 
-            onClick={() => setIsConnected(!isConnected)}
+            disabled={loading}
+            onClick={user ? logOut : signIn}
             className={cn(
-              "px-5 py-2.5 text-xs font-black uppercase tracking-widest transition-all transform active:scale-95 border",
-              isConnected 
-                ? "border-white/20 hover:bg-white hover:text-black" 
+              "px-5 py-2.5 text-xs font-black uppercase tracking-widest transition-all transform active:scale-95 border flex items-center gap-2",
+              user 
+                ? "border-white/20 hover:bg-red-500/10 hover:border-red-500/50 hover:text-red-500 group" 
                 : "bg-white text-black hover:bg-gray-200 shadow-[0_4px_20px_rgba(255,255,255,0.15)]"
             )}
           >
-            {isConnected ? "12,450 USDC" : "Connect Wallet"}
+            {loading ? (
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : user ? (
+              <>
+                <span className="group-hover:hidden">{formatCurrency(userData?.balance || 0)} USDC</span>
+                <span className="hidden group-hover:flex items-center gap-2">
+                  <LogOut size={14} /> Log Out
+                </span>
+              </>
+            ) : (
+              "Login with Google"
+            )}
           </button>
         </div>
 

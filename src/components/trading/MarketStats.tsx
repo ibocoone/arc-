@@ -29,11 +29,15 @@ export default function MarketStats({ market }: MarketStatsProps) {
       <div className="grid grid-cols-2 gap-x-12 gap-y-6 pt-4 min-w-fit">
         <div className="flex flex-col">
           <span className="label-caps mb-1">24h Volume</span>
-          <span className="text-xl font-black font-mono">$142.8M</span>
+          <span className="text-xl font-black font-mono">
+            ${market.volume24h > 1000000 
+              ? (market.volume24h / 1000000).toFixed(1) + 'M' 
+              : formatCurrency(market.volume24h, 0)}
+          </span>
         </div>
         <div className="flex flex-col">
           <span className="label-caps mb-1">Open Interest</span>
-          <span className="text-xl font-black font-mono">$42.1M</span>
+          <span className="text-xl font-black font-mono">${(market.volume24h * 0.3 / 1000000).toFixed(1)}M</span>
         </div>
         <div className="flex flex-col">
           <span className="label-caps mb-1">Funding Rate</span>

@@ -16,6 +16,7 @@ export interface Market {
   symbol: string;
   price: number;
   change24h: number;
+  volume24h: number;
   category: "Crypto" | "Commodity" | "Forex" | "Stocks";
   fundingRate: number;
   borrowRate: number;

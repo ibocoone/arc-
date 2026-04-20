@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function emailVerified() { return request.auth.token.email_verified == true; }
+    
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      return data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             data.balance is number && data.balance >= 0 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidPosition(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.marketId is string && data.marketId.size() <= 50 &&
+             data.side in ['LONG', 'SHORT'] &&
+             data.size is number && data.size > 0 &&
+             data.leverage is number && data.leverage >= 1 && data.leverage <= 100 &&
+             data.entryPrice is number &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.marketId is string && data.marketId.size() <= 50 &&
+             data.side in ['LONG', 'SHORT'] &&
+             data.type in ['MARKET', 'LIMIT', 'STOP_LIMIT', 'TRAILING_STOP'] &&
+             data.size is number && data.size > 0 &&
+             data.status in ['OPEN', 'FILLED', 'CANCELLED'] &&
+             data.createdAt is timestamp;
+    }
+
+    // --- Collection Routes ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      // Only allow initial creation with specific balance
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().balance == 10000;
+      // USERS CANNOT UPDATE BALANCE. Only server (Admin SDK) can bypass this.
+      allow update: if isOwner(userId) && 
+                    incoming().balance == existing().balance && // Force balance immutability for user
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'lastLogin', 'lastActivity']);
+      
+      match /positions/{positionId} {
+        allow list, get: if isOwner(userId);
+        // USERS CANNOT CREATE OR DELETE POSITIONS. Only server can.
+        allow write: if false; 
+      }
+
+      match /orders/{orderId} {
+        allow list, get: if isOwner(userId);
+        // USERS CANNOT CREATE OR MODIFY ORDERS. Only server can.
+        allow write: if false;
+      }
+    }
+  }
+}
