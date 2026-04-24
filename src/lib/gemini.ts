@@ -1,10 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+export const MODEL_NAME = "gemini-2.0-flash";
 
-export const MODEL_NAME = "gemini-3-flash-preview";
+function getClient() {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || key === "YOUR_GEMINI_API_KEY") return null;
+  return new GoogleGenAI({ apiKey: key });
+}
 
 export async function getTradingAdvice(prompt: string, marketContext: any) {
+  const ai = getClient();
+  if (!ai) return "AI assistant unavailable — please configure your GEMINI_API_KEY.";
+
   try {
     const formattedPrompt = `
       You are a professional DEX trading assistant for ARC PERP.
@@ -34,6 +41,9 @@ export async function getTradingAdvice(prompt: string, marketContext: any) {
 }
 
 export async function getMarketSignals(markets: any[]) {
+  const ai = getClient();
+  if (!ai) return "AI signals unavailable — please configure your GEMINI_API_KEY.";
+
   try {
     const prompt = `
       Analyze these markets and provide 3 quick trading signals (LONG or SHORT) with a brief reason.

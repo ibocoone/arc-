@@ -1,10 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { OrderSide, OrderType, Market } from "../../types/trading";
 import { cn, formatCurrency } from "../../lib/utils";
-import { Info, Zap, ShieldCheck, TrendingDown, Loader2 } from "lucide-react";
+import { ShieldCheck, TrendingDown, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
-import { db } from "../../lib/firebase";
-import { collection, addDoc, serverTimestamp, runTransaction, doc } from "firebase/firestore";
 import { useUser } from "../../contexts/UserContext";
 
 interface OrderPanelProps {
@@ -26,11 +24,16 @@ export default function OrderPanel({ market }: OrderPanelProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Clear error when wallet connects
+  useEffect(() => {
+    if (user) setError(null);
+  }, [user]);
+
   const collars = [2, 5, 10, 20, 50, 100];
 
   const handleOpenOrder = async () => {
-    if (!user || !userData) {
-      setError("Please login to trade");
+    if (!user) {
+      setError("Please connect your wallet to trade");
       return;
     }
 
@@ -40,8 +43,9 @@ export default function OrderPanel({ market }: OrderPanelProps) {
       return;
     }
 
-    if (tradeSize > userData.balance) {
-      setError("Insufficient balance");
+    const balance = userData?.balance ?? 10000; // default 10k if doc not loaded yet
+    if (tradeSize > balance) {
+      setError(`Insufficient balance (${balance.toFixed(2)} USDC available)`);
       return;
     }
 
@@ -49,15 +53,12 @@ export default function OrderPanel({ market }: OrderPanelProps) {
     setError(null);
 
     try {
-      // Get Firebase ID Token for secure backend verification
-      const idToken = await user.getIdToken();
-
-      // PRODUCTION GRADE: Call Arc Server to execute the trade
+      // Send wallet address as auth token
       const response = await fetch('/api/trading/open-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
+          'Authorization': `Bearer ${user.address}`
         },
         body: JSON.stringify({
           marketId: market.id,
@@ -304,13 +305,17 @@ export default function OrderPanel({ market }: OrderPanelProps) {
           className={cn(
             "w-full py-5 rounded text-black font-black uppercase tracking-tighter text-xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-2",
             isSubmitting && "opacity-50 cursor-not-allowed",
-            side === OrderSide.LONG 
-              ? "bg-dex-up hover:bg-dex-up/90 shadow-dex-up/20" 
-              : "bg-dex-down hover:bg-dex-down/90 shadow-dex-down/20"
+            !user
+              ? "bg-white text-black hover:bg-gray-200"
+              : side === OrderSide.LONG
+                ? "bg-dex-up hover:bg-dex-up/90 shadow-dex-up/20"
+                : "bg-dex-down hover:bg-dex-down/90 shadow-dex-down/20"
           )}
         >
           {isSubmitting ? (
             <Loader2 className="animate-spin" />
+          ) : !user ? (
+            "Connect Wallet"
           ) : side === OrderSide.LONG ? (
             "Open Long"
           ) : (
@@ -321,7 +326,7 @@ export default function OrderPanel({ market }: OrderPanelProps) {
         <div className="mt-4 flex items-start gap-3 p-4 bg-white/5 border border-white/10 rounded-lg group hover:bg-white/10 transition-colors">
           <ShieldCheck className="text-blue-500 w-5 h-5 mt-0.5 shrink-0" />
           <p className="text-[10px] text-white/50 leading-relaxed uppercase font-bold tracking-tight">
-            Orders are executed on <span className="text-white font-black">Arc Network</span> mainnet-ready infrastructure. Zero downtime, maximum performance.
+            Orders are executed on <span className="text-white font-black">Arc Testnet</span> — paper trading only. No real funds at risk.
           </p>
         </div>
       </div>

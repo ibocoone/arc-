@@ -5,6 +5,7 @@ import TradingViewChart from "./components/trading/TradingViewChart";
 import OrderPanel from "./components/trading/OrderPanel";
 import PositionsTable from "./components/trading/PositionsTable";
 import AIChatAssistant from "./components/trading/AIChatAssistant";
+import Dashboard from "./pages/Dashboard";
 import { RWA_MARKETS } from "./constants/markets";
 import { Market } from "./types/trading";
 import { cn, formatCurrency } from "./lib/utils";
@@ -14,13 +15,17 @@ import { motion, AnimatePresence } from "motion/react";
 export default function App() {
   const [markets, setMarkets] = useState<Market[]>(RWA_MARKETS);
   const [selectedMarket, setSelectedMarket] = useState<Market>(RWA_MARKETS[0]);
+  const [showDashboard, setShowDashboard] = useState(false);
+
+  // Live prices map for PnL calculation
+  const livePrices: Record<string, number> = {};
+  markets.forEach(m => { if (m.price) livePrices[m.id] = m.price; });
 
   useEffect(() => {
-    // REAL-TIME MARKET DATA INTEGRATION (BINANCE WEBSOCKET)
-    // Connect to Binance's multiple ticker stream
-    const symbols = markets.map(m => m.id.toLowerCase()).join('@ticker/');
+    // Single WS for all Binance markets
+    const binanceMarkets = RWA_MARKETS.filter(m => !m.isRWA);
+    const symbols = binanceMarkets.map(m => m.id.toLowerCase()).join('@ticker/');
     const wsUrl = `wss://stream.binance.com:9443/ws/${symbols}@ticker`;
-    
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {
@@ -29,38 +34,46 @@ export default function App() {
       const newPrice = parseFloat(data.c);
       const change = parseFloat(data.P);
       const volume = parseFloat(data.q);
-
-      setMarkets(prev => prev.map(m => {
-        if (m.id === symbol) {
-          return {
-            ...m,
-            price: newPrice,
-            change24h: change,
-            volume24h: volume
-          };
-        }
-        return m;
-      }));
-
-      // Sync selected market
-      if (symbol === selectedMarket.id) {
-        setSelectedMarket(prev => ({
-          ...prev,
-          price: newPrice,
-          change24h: change,
-          volume24h: volume
-        }));
-      }
+      setMarkets(prev => prev.map(m =>
+        m.id === symbol ? { ...m, price: newPrice, change24h: change, volume24h: volume } : m
+      ));
+      setSelectedMarket(prev =>
+        prev.id === symbol ? { ...prev, price: newPrice, change24h: change, volume24h: volume } : prev
+      );
     };
+    ws.onerror = (err) => console.error("Market WS Error:", err);
 
-    ws.onerror = (err) => console.error("Market WebSocket Error:", err);
-    
-    return () => ws.close();
-  }, [selectedMarket.id]);
+    // Fetch RWA prices (Gold, Silver, Stocks) every 30s
+    const fetchRWA = async () => {
+      try {
+        const res = await fetch('/api/rwa-prices');
+        const data = await res.json();
+        setMarkets(prev => prev.map(m => {
+          if (data[m.id]) {
+            const updated = { ...m, price: data[m.id].price, change24h: data[m.id].change24h };
+            if (selectedMarket.id === m.id) setSelectedMarket(updated);
+            return updated;
+          }
+          return m;
+        }));
+      } catch (e) { console.error('RWA price fetch error:', e); }
+    };
+    fetchRWA();
+    const rwaInterval = setInterval(fetchRWA, 30000);
+
+    return () => {
+      ws.close();
+      clearInterval(rwaInterval);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-dex-bg text-dex-text overflow-hidden select-none font-sans transition-colors duration-300">
-      <Header />
+      <Header onDashboard={() => setShowDashboard(true)} />
+      
+      {showDashboard && (
+        <Dashboard onClose={() => setShowDashboard(false)} livePrices={livePrices} />
+      )}
       
       <main className="flex-1 flex overflow-hidden">
         {/* Left Sidebar: Market Selector */}
@@ -144,7 +157,7 @@ export default function App() {
             </div>
             
             <div className="flex-1 min-h-[400px]">
-              <PositionsTable />
+              <PositionsTable livePrices={livePrices} />
             </div>
           </div>
         </section>

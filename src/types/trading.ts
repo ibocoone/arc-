@@ -20,6 +20,8 @@ export interface Market {
   category: "Crypto" | "Commodity" | "Forex" | "Stocks";
   fundingRate: number;
   borrowRate: number;
+  priceDecimals?: number;
+  isRWA?: boolean; // fetched from server proxy, not Binance WS
 }
 
 export interface Position {

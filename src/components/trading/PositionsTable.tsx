@@ -1,14 +1,28 @@
 import { useState, useEffect } from "react";
-import { Position, OrderSide, PastOrder } from "../../types/trading";
+import { Position, OrderSide } from "../../types/trading";
 import { formatCurrency, cn } from "../../lib/utils";
-import { ExternalLink, X, Loader2 } from "lucide-react";
+import { ExternalLink, X, Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import { db } from "../../lib/firebase";
-import { collection, query, onSnapshot, doc, deleteDoc, updateDoc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { collection, query, onSnapshot } from "firebase/firestore";
 import { useUser } from "../../contexts/UserContext";
 
 type TabType = "POSITIONS" | "OPEN_ORDERS" | "HISTORY";
 
-export default function PositionsTable() {
+interface PositionsTableProps {
+  livePrices?: Record<string, number>;
+}
+
+// Calculate live PnL for a position
+function calcPnL(pos: any, markPrice: number) {
+  if (!markPrice || !pos.entryPrice || !pos.size) return { pnl: 0, pct: 0 };
+  const pnl = pos.side === 'LONG'
+    ? (markPrice - pos.entryPrice) * (pos.size / pos.entryPrice)
+    : (pos.entryPrice - markPrice) * (pos.size / pos.entryPrice);
+  const pct = (pnl / pos.margin) * 100;
+  return { pnl, pct };
+}
+
+export default function PositionsTable({ livePrices = {} }: PositionsTableProps) {
   const { user, userData } = useUser();
   const [activeTab, setActiveTab] = useState<TabType>("POSITIONS");
   const [positions, setPositions] = useState<Position[]>([]);
@@ -56,13 +70,11 @@ export default function PositionsTable() {
 
     try {
       setLoading(true);
-      const idToken = await user.getIdToken();
-
       const response = await fetch('/api/trading/close-position', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
+          'Authorization': `Bearer ${user.address}`
         },
         body: JSON.stringify({ positionId: pos.id })
       });
@@ -136,7 +148,10 @@ export default function PositionsTable() {
                 </thead>
                 <tbody className="text-sm font-mono tracking-tighter text-white">
                   {positions.length > 0 ? (
-                    positions.map((pos) => (
+                    positions.map((pos) => {
+                      const markPrice = livePrices[pos.marketId] || pos.markPrice || pos.entryPrice;
+                      const { pnl, pct } = calcPnL(pos, markPrice);
+                      return (
                       <tr key={pos.id} className="data-table-row group border-b border-white/5 hover:bg-white/[0.02]">
                         <td className="py-4 pr-6">
                           <div className="flex items-center gap-3">
@@ -151,19 +166,17 @@ export default function PositionsTable() {
                         </td>
                         <td className="py-4 px-6 font-medium">${formatCurrency(pos.size)}</td>
                         <td className="py-4 px-6 text-white/60">{formatCurrency(pos.entryPrice)}</td>
-                        <td className="py-4 px-6 text-white/60">{formatCurrency(pos.markPrice)}</td>
+                        <td className="py-4 px-6 text-white font-mono">{formatCurrency(markPrice)}</td>
                         <td className="py-4 px-6 text-right">
-                          <div className={cn(
-                            "font-bold",
-                            pos.pnl >= 0 ? "text-dex-up" : "text-dex-down"
-                          )}>
-                            {pos.pnl >= 0 ? "+" : ""}{formatCurrency(pos.pnl)}
-                            <span className="ml-1 text-[10px] opacity-80">({pos.pnlPercentage >= 0 ? "+" : ""}{pos.pnlPercentage}%)</span>
+                          <div className={cn("font-bold flex items-center justify-end gap-1", pnl >= 0 ? "text-dex-up" : "text-dex-down")}>
+                            {pnl >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                            {pnl >= 0 ? "+" : ""}{formatCurrency(pnl)}
+                            <span className="ml-1 text-[10px] opacity-80">({pct >= 0 ? "+" : ""}{pct.toFixed(2)}%)</span>
                           </div>
                         </td>
                         <td className="py-4 px-6 text-right">
                           <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
+                            <button
                               onClick={() => handleClosePosition(pos)}
                               className="px-3 py-1 bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
                             >
@@ -172,7 +185,8 @@ export default function PositionsTable() {
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={6} className="py-20 text-center">
@@ -222,10 +236,9 @@ export default function PositionsTable() {
                             onClick={async () => {
                               if (!confirm("Cancel this order?")) return;
                               try {
-                                const idToken = await user!.getIdToken();
                                 await fetch('/api/trading/cancel-order', {
                                   method: 'POST',
-                                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user!.address}` },
                                   body: JSON.stringify({ orderId: order.id })
                                 });
                               } catch (e) { alert("Failed to cancel"); }
