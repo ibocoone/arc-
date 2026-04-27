@@ -1,20 +1,48 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# ARC PERP — Perpetual DEX for Real World Assets
 
-# Run and deploy your AI Studio app
+A perpetual trading DEX built on Arc Testnet, supporting crypto, commodities, forex and tokenized stocks — all settled in USDC.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/e8656c77-085a-4929-b4e1-73337e9167f6
+- **10 tradable markets** — BTC, ETH, SOL, BNB, Gold, Silver, EUR/USD, GBP/USD, AAPL, TSLA
+- **Up to 100x leverage** on all markets
+- **Order types** — Market, Limit, Stop-Limit, Trailing Stop
+- **Risk management** — Stop Loss, Take Profit, auto-liquidation engine
+- **Live PnL** — real-time position tracking
+- **AI assistant** — powered by Gemini
+- **Wallet connect** — MetaMask with auto Arc Testnet switch
+- **Dashboard** — portfolio overview, trade history, win rate
 
-## Run Locally
+## Stack
 
-**Prerequisites:**  Node.js
+- React 19 + TypeScript + Vite + Tailwind CSS v4
+- Express.js + WebSocket (Binance live prices)
+- Firebase Firestore (positions, orders, balances)
+- Twelve Data API (Gold, Silver, Stocks)
+- Google Gemini AI (trading assistant)
+- Ethers.js (wallet connection)
 
+## Getting Started
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```bash
+npm install
+npm run dev
+```
+
+Add your environment variables in `.env`:
+```
+GEMINI_API_KEY=your_key
+TWELVE_DATA_KEY=your_key
+FIREBASE_SERVICE_ACCOUNT=your_json
+```
+
+## Arc Testnet
+
+| Field | Value |
+|-------|-------|
+| Network | Arc Testnet |
+| Chain ID | 5042002 |
+| Currency | USDC |
+| RPC | https://rpc.testnet.arc.network |
+| Explorer | https://testnet.arcscan.app |
+| Faucet | https://faucet.circle.com |
