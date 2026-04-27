@@ -11,9 +11,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const require = createRequire(import.meta.url);
-const firebaseConfig = require('./firebase-applet-config.json');
 
-// Support service account from env var (Railway) or file (local)
+// Firebase config — hardcoded for reliability
+const firebaseConfig = {
+  projectId: "test2-6b5b2",
+  firestoreDatabaseId: "(default)",
+};
+
+// Support service account from env var (Render/Railway) or file (local)
 let serviceAccount: any;
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
