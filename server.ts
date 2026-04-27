@@ -342,8 +342,15 @@ async function startServer() {
 
   // ── Vite / Static ────────────────────────────────────────────────────────
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
-    app.use(vite.middlewares);
+    try {
+      const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.warn('Vite dev server not available, serving static files');
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (_, res) => res.sendFile(path.join(distPath, 'index.html')));
+    }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
