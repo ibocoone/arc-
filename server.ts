@@ -349,12 +349,12 @@ async function startServer() {
       console.warn('Vite dev server not available, serving static files');
       const distPath = path.join(process.cwd(), 'dist');
       app.use(express.static(distPath));
-      app.get('*', (_, res) => res.sendFile(path.join(distPath, 'index.html')));
+      app.get('/{*splat}', (_, res) => res.sendFile(path.join(distPath, 'index.html')));
     }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (_, res) => res.sendFile(path.join(distPath, 'index.html')));
+    app.get('/{*splat}', (_, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
   app.listen(PORT, '0.0.0.0', () => console.log(`🚀 ARC Server running at http://0.0.0.0:${PORT}`));
